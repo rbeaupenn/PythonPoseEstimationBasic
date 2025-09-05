@@ -7,4 +7,4 @@ How to run this app:
 
 Changes Needed:
 Currently excludes occluded poses i.e. not all 17 keypoints --> No data
-Maybe make it dump results it has if stopped partially through?
+Maybe make it dump results it has if it has stopped partially through
