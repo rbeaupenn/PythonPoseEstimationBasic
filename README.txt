@@ -7,7 +7,9 @@ How to run this app:
 
 Changes Needed:
 Fix frame to frame person tracking
--Currently just done through detection order. Need to improve this.
+-Added DeepSort for tracking purposes
+--Currently set up in appPackageTracking.py
+---Note that it takes 3 frames to initialize proper tracking
 Maybe make it dump finished video results if it has stopped partially through
 -Write to dump folder which is added to repo?
 --Also prevents data loss if front end is reloaded
