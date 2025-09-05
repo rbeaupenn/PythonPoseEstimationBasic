@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Pose Detection</title>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .upload-btn:hover {
+            background: #45a049;
+        }
+        .file-list {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            display: none;
+        }
+        .file-list h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        .file-item {
+            padding: 5px 0;
+            color: #666;
+        }
+        .process-btn {
+            margin-top: 20px;
+            padding: 12px 40px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            display: none;
+        }
+        .process-btn:hover {
+            background: #1976D2;
+        }
+        .process-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .download-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+        }
+        .download-btn {
+            padding: 15px 40px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .download-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+        .code-ref {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Pose Detection</h1>
+        <p class="subtitle">Upload MP4 videos for pose detection using VitPose</p>
+        
+        <label for="folder-input" class="upload-btn">
+            📁 Select Video Folder
+        </label>
+        <input type="file" id="folder-input" webkitdirectory directory multiple accept=".mp4">
+        
+        <div class="file-list" id="file-list">
+            <h3>Selected Videos:</h3>
+            <div id="file-names"></div>
+        </div>
+        
+        <button class="process-btn" id="process-btn" onclick="processVideos()">
+            🎯 Process Videos
+        </button>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="download-section" id="download-section">
+            <h3>📦 Your Results Are Ready!</h3>
+            <button class="download-btn" onclick="downloadResults()">
+                📥 Download Results (ZIP)
+            </button>
+        </div>
+        
+        <div class="code-ref">
+            <strong>Backend Reference:</strong><br>
+            • RTDetr for person detection<br>
+            • VitPose for keypoint estimation
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        
+        document.getElementById('folder-input').addEventListener('change', function(e) {
+            selectedFiles = Array.from(e.target.files).filter(f => f.name.endsWith('.mp4'));
+            
+            if (selectedFiles.length > 0) {
+                const fileList = document.getElementById('file-list');
+                const fileNames = document.getElementById('file-names');
+                const processBtn = document.getElementById('process-btn');
+                
+                fileNames.innerHTML = selectedFiles.map(f => 
+                    `<div class="file-item">📹 ${f.name}</div>`
+                ).join('');
+                
+                fileList.style.display = 'block';
+                processBtn.style.display = 'inline-block';
+            }
+        });
+        
+        async function processVideos() {
+            const status = document.getElementById('status');
+            const processBtn = document.getElementById('process-btn');
+            const downloadSection = document.getElementById('download-section');
+            
+            // Hide download button from previous runs
+            downloadSection.style.display = 'none';
+            
+            if (selectedFiles.length === 0) {
+                status.className = 'status error';
+                status.style.display = 'block';
+                status.innerHTML = '❌ No video files selected';
+                return;
+            }
+            
+            // Show processing status
+            status.className = 'status processing';
+            status.style.display = 'block';
+            status.innerHTML = '⏳ Processing videos... This may take a while';
+            processBtn.disabled = true;
+            
+            // Create FormData to send files
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('videos', file);
+            });
+            
+            try {
+                const response = await fetch('/process_videos', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'  // Include cookies
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    status.className = 'status success';
+                    status.style.display = 'block';
+                    status.innerHTML = `✅ <strong>Processing complete!</strong><br>
+                                       📊 ${result.processed_count} videos processed<br>
+                                       📁 Output files: ${result.files_processed ? result.files_processed.join(', ') : 'Ready for download'}`;
+                    
+                    // Show download button - IMPORTANT!
+                    downloadSection.style.display = 'block';
+                    console.log('Download section is now visible!');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Processing failed');
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.style.display = 'block';
+                status.innerHTML = `❌ Error: ${error.message}`;
+                console.error('Processing error:', error);
+            } finally {
+                processBtn.disabled = false;
+            }
+        }
+        
+        async function downloadResults() {
+            console.log('Download button clicked!');
+            const status = document.getElementById('status');
+            
+            try {
+                // Add download progress indicator
+                const originalHTML = status.innerHTML;
+                status.innerHTML = originalHTML + '<br><br>📥 Preparing download...';
+                
+                const response = await fetch('/download_results', {
+                    method: 'GET',
+                    credentials: 'include'  // Important for cookies
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `pose_results_${new Date().toISOString().slice(0,10)}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    status.innerHTML = originalHTML + '<br><br>✅ Download complete!';
+                } else {
+                    let errorMsg = 'Unknown error';
+                    try {
+                        const error = await response.json();
+                        errorMsg = error.error || errorMsg;
+                    } catch (e) {
+                        console.error('Error parsing response:', e);
+                    }
+                    alert('Error downloading results: ' + errorMsg);
+                    status.innerHTML = originalHTML;
+                }
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Download failed: ' + error.message);
+            }
+        }
+        
+        // Debug helper - type this in console to force show download button
+        window.showDownload = function() {
+            document.getElementById('download-section').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
